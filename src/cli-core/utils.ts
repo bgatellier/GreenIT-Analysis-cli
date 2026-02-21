@@ -1,9 +1,11 @@
-const ProgressBar = require('progress');
+import ProgressBar from 'progress';
+
+type Grade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 
 /**
  * Initialize new progress bar
  */
-function createProgressBar(options, total, progressText, defaultText) {
+function createProgressBar(options: { ci: boolean }, total: number, progressText: string, defaultText: string) {
     let progressBar;
     if (!options.ci) {
         progressBar = new ProgressBar(
@@ -24,7 +26,7 @@ function createProgressBar(options, total, progressText, defaultText) {
 }
 
 //EcoIndex -> Grade
-function getEcoIndexGrade(ecoIndex) {
+function getEcoIndexGrade(ecoIndex: number): Grade {
     if (ecoIndex > 75) return 'A';
     if (ecoIndex > 65) return 'B';
     if (ecoIndex > 50) return 'C';
@@ -35,7 +37,7 @@ function getEcoIndexGrade(ecoIndex) {
 }
 
 //Grade -> EcoIndex
-function getGradeEcoIndex(grade) {
+function getGradeEcoIndex(grade: Grade): number {
     if (grade == 'A') return 75;
     if (grade == 'B') return 65;
     if (grade == 'C') return 50;
@@ -45,8 +47,8 @@ function getGradeEcoIndex(grade) {
     return 0;
 }
 
-module.exports = {
+export {
     createProgressBar,
     getEcoIndexGrade,
     getGradeEcoIndex,
-};
+}
