@@ -1,26 +1,52 @@
-const fs = require('fs');
-const YAML = require('yaml');
-const path = require('path');
-const puppeteer = require('puppeteer');
+import fs from 'node:fs';
+import path from 'node:path';
+import puppeteer from 'puppeteer';
+import YAML, { YAMLError } from 'yaml';
+import { Locale, translator } from '../cli-core/translator';
 const createJsonReports = require('../cli-core/analysis.js').createJsonReports;
 const login = require('../cli-core/analysis.js').login;
 const create_global_report = require('../cli-core/reportGlobal.js').create_global_report;
 const create_XLSX_report = require('../cli-core/reportExcel.js').create_XLSX_report;
 const create_html_report = require('../cli-core/reportHtml.js').create_html_report;
 const writeToInflux = require('../cli-core/influxdb').write;
-const translator = require('../cli-core/translator.js').translator;
+
+type Options = {
+    url_input_file: string
+    proxy?: string
+    headers?: string
+    format: 'html' | 'xlsx' | 'influxdb' | 'influxdbhtml'
+    report_output_file: string
+    headless: boolean
+    language: Locale
+    login?: string
+}
+
+type Proxy = {
+    server: string
+    user: string
+    password: string
+    bypass: boolean
+}
+
+type Headers = {
+    accept: string
+    'accept-encoding': 'string'
+    'accept-language': string
+}
 
 //launch core
-async function analyse_core(options) {
+async function analyse_core(options: Options) {
     const URL_YAML_FILE = path.resolve(options.url_input_file);
     //Get list of pages to analyze and its informations
     let pagesInformations;
     try {
         pagesInformations = YAML.parse(fs.readFileSync(URL_YAML_FILE).toString());
     } catch (error) {
-        throw ` url_input_file : "${URL_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
-            error.linePos
-        )}.`;
+        if (error instanceof YAMLError) {
+            throw ` url_input_file : "${URL_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
+                error.linePos
+            )}.`;
+        }
     }
 
     let browserArgs = [
@@ -29,7 +55,7 @@ async function analyse_core(options) {
     ];
 
     // Add proxy conf in browserArgs
-    let proxy = {};
+    let proxy: Proxy | undefined = undefined
     if (options.proxy) {
         proxy = readProxy(options.proxy);
         browserArgs.push(`--proxy-server=${proxy.server}`);
@@ -39,7 +65,7 @@ async function analyse_core(options) {
     }
 
     // Read headers http file
-    let headers;
+    let headers: Headers | undefined = undefined;
     if (options.headers) {
         headers = readHeaders(options.headers);
     }
@@ -52,11 +78,11 @@ async function analyse_core(options) {
 
     //start browser
     const browser = await puppeteer.launch({
-        headless: options.headless === false ? false : 'new',
+        headless: options.headless,
         args: browserArgs,
         // Keep gpu horsepower in headless
         ignoreDefaultArgs: ['--disable-gpu'],
-        ignoreHTTPSErrors: true,
+        acceptInsecureCerts: true,
     });
 
     // init translator
@@ -72,9 +98,11 @@ async function analyse_core(options) {
             try {
                 loginInfos = YAML.parse(fs.readFileSync(LOGIN_YAML_FILE).toString());
             } catch (error) {
-                throw ` --login : "${LOGIN_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
-                    error.linePos
-                )}.`;
+                if (error instanceof YAMLError) {
+                    throw ` --login : "${LOGIN_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
+                        error.linePos
+                    )}.`;
+                }
             }
             await login(browser, loginInfos, options);
         }
@@ -99,36 +127,41 @@ async function analyse_core(options) {
     }
 }
 
-function readProxy(proxyFile) {
+function readProxy(proxyFile:string): Proxy {
     const PROXY_FILE = path.resolve(proxyFile);
-    let proxy;
     try {
-        proxy = YAML.parse(fs.readFileSync(PROXY_FILE).toString());
+        const proxy = YAML.parse(fs.readFileSync(PROXY_FILE).toString());
         if (!proxy.server || !proxy.user || !proxy.password) {
             throw `proxy_config_file : Bad format "${PROXY_FILE}". Expected server, user and password.`;
         }
+        return proxy;
     } catch (error) {
-        throw ` proxy_config_file : "${PROXY_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
-            error.linePos
-        )}.`;
+        if (error instanceof YAMLError) {
+            throw ` proxy_config_file : "${PROXY_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
+                error.linePos
+            )}.`;
+        } else {
+            throw error
+        }
     }
-    return proxy;
 }
 
-function readHeaders(headersFile) {
+function readHeaders(headersFile: string): Headers {
     const HEADERS_YAML_FILE = path.resolve(headersFile);
-    let headers;
     try {
-        headers = YAML.parse(fs.readFileSync(HEADERS_YAML_FILE).toString());
+        return YAML.parse(fs.readFileSync(HEADERS_YAML_FILE).toString());
     } catch (error) {
-        throw ` --headers : "${HEADERS_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
-            error.linePos
-        )}.`;
+        if (error instanceof YAMLError) {
+            throw ` --headers : "${HEADERS_YAML_FILE}" is not a valid YAML file: ${error.code} at ${JSON.stringify(
+                error.linePos
+            )}.`;
+        } else {
+            throw error
+        }
     }
-    return headers;
 }
 
-function getReportFormat(format, filename) {
+function getReportFormat(format: Options['format'], filename: string): string | undefined {
     // Check if format is defined
     const formats = ['xlsx', 'html', 'influxdb', 'influxdbhtml'];
     if (format && formats.includes(format.toLowerCase())) {
@@ -145,11 +178,11 @@ function getReportFormat(format, filename) {
 }
 
 //export method that handle error
-function analyse(options) {
+function analyse(options: Options) {
     analyse_core(options).catch((e) => console.error('ERROR : \n', e));
 }
 
-module.exports = {
+export {
     analyse,
     analyse_core
-};
+}
