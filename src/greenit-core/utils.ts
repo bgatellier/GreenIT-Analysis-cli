@@ -15,18 +15,10 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import har from 'har-format'
+import esprisma from 'esprima'
 
 const DEBUG = true;
-/*
-requirejs.config({
-  //By default load any module IDs from script
-  baseUrl: 'script/externalLibs',
-});
-
-// Load module require.js
-requirejs(['esprima'],
-  (esprima) => console.log("Load esprima module"));
-*/
 
 const compressibleImage = [
     /^image\/bmp(;|$)/i,
@@ -110,19 +102,19 @@ const others = [
     /^application\/zip(;|$)/i,
 ];
 
-const staticResources = [].concat(image, javascript, font, css, audio, video, manifest, others);
+const staticResources = new Array<RegExp>().concat(image, javascript, font, css, audio, video, manifest, others);
 
-const httpCompressionTokens = ['br', 'compress', 'deflate', 'gzip', 'pack200-gzip'];
+const httpCompressionTokens = new Set(['br', 'compress', 'deflate', 'gzip', 'pack200-gzip']);
 
 const httpRedirectCodes = [301, 302, 303, 307];
 
 // utils for cache rule
-function isStaticRessource(resource) {
+function isStaticRessource(resource: har.Entry): boolean {
     const contentType = getResponseHeaderFromResource(resource, 'content-type');
     return staticResources.some((value) => value.test(contentType));
 }
 
-function isFontResource(resource) {
+function isFontResource(resource: har.Entry): boolean {
     const contentType = getResponseHeaderFromResource(resource, 'content-type');
     if (font.some((value) => value.test(contentType))) return true;
     // if not check url , because sometimes content-type is set to text/plain
@@ -137,7 +129,7 @@ function isFontResource(resource) {
     return false;
 }
 
-function getHeaderWithName(headers, headerName) {
+function getHeaderWithName(headers: har.Header[], headerName: string): string {
     let headerValue = '';
     headers.forEach((header) => {
         if (header.name.toLowerCase() === headerName.toLowerCase()) headerValue = header.value;
@@ -145,19 +137,19 @@ function getHeaderWithName(headers, headerName) {
     return headerValue;
 }
 
-function getResponseHeaderFromResource(resource, headerName) {
+function getResponseHeaderFromResource(resource: har.Entry, headerName: string): string {
     return getHeaderWithName(resource.response.headers, headerName);
 }
 
-function getCookiesLength(resource) {
+function getCookiesLength(resource: har.Entry): number {
     let cookies = getHeaderWithName(resource.request.headers, 'cookie');
     if (cookies) return cookies.length;
     else return 0;
 }
 
-function hasValidCacheHeaders(resource) {
+function hasValidCacheHeaders(resource: har.Entry): boolean {
     const headers = resource.response.headers;
-    let cache = {};
+    let cache: Partial<Record<'CacheControl' | 'Expires' | 'Date', string>> = {};
     let isValid = false;
 
     headers.forEach((header) => {
@@ -165,8 +157,6 @@ function hasValidCacheHeaders(resource) {
         if (header.name.toLowerCase() === 'expires') cache.Expires = header.value;
         if (header.name.toLowerCase() === 'date') cache.Date = header.value;
     });
-
-    // debug(() => `Cache headers gathered: ${JSON.stringify(cache)}`);
 
     if (cache.CacheControl) {
         if (!/(no-cache)|(no-store)|(max-age\s*=\s*0)/i.test(cache.CacheControl)) isValid = true;
@@ -177,7 +167,6 @@ function hasValidCacheHeaders(resource) {
         let expires = new Date(cache.Expires);
         // Expires is in the past
         if (expires < now) {
-            //debug(() => `Expires header is in the past ! ${now.toString()} < ${expires.toString()}`);
             isValid = false;
         }
     }
@@ -186,38 +175,32 @@ function hasValidCacheHeaders(resource) {
 }
 
 // utils for compress rule
-function isCompressibleResource(resource) {
+function isCompressibleResource(resource: har.Entry): boolean {
     if (resource.response.content.size <= 150) return false;
     const contentType = getResponseHeaderFromResource(resource, 'content-type');
     return compressible.some((value) => value.test(contentType));
 }
 
-function isResourceCompressed(resource) {
+function isResourceCompressed(resource: har.Entry): boolean {
     const contentEncoding = getResponseHeaderFromResource(resource, 'content-encoding');
-    return contentEncoding.length > 0 && httpCompressionTokens.indexOf(contentEncoding.toLocaleLowerCase()) !== -1;
+    return contentEncoding.length > 0 && httpCompressionTokens.has(contentEncoding.toLocaleLowerCase());
 }
 
 // utils for ETags rule
-function isRessourceUsingETag(resource) {
+function isRessourceUsingETag(resource: har.Entry): boolean {
     const eTag = getResponseHeaderFromResource(resource, 'ETag');
     if (eTag === '') return false;
     return true;
 }
 
-function getDomainFromUrl(url) {
-    var elements = url.split('//');
-    if (elements[1] === undefined) return '';
-    else {
-        elements = elements[1].split('/'); // get domain with port
-        elements = elements[0].split(':'); // get domain without port
-    }
-    return elements[0];
+function getDomainFromUrl(url: string): string | undefined {
+    return URL.parse(url)?.hostname
 }
 
 /**
  * Count character occurences in the given string
  */
-function countChar(char, str) {
+function countChar(char: string, str: string): number {
     let total = 0;
     str.split('').forEach((curr) => {
         if (curr === char) total++;
@@ -228,7 +211,7 @@ function countChar(char, str) {
 /**
  * Detect minification for Javascript and CSS files
  */
-function isMinified(scriptContent) {
+function isMinified(scriptContent: string): boolean {
     if (!scriptContent) return true;
     if (scriptContent.length === 0) return true;
     const total = scriptContent.length - 1;
@@ -247,7 +230,7 @@ function isMinified(scriptContent) {
  * Detect network resources (data urls embedded in page is not network resource)
  *  Test with request.url as  request.httpVersion === "data"  does not work with old chrome version (example v55)
  */
-function isNetworkResource(harEntry) {
+function isNetworkResource(harEntry: har.Entry): boolean {
     return !harEntry.request.url.startsWith('data');
 }
 
@@ -255,18 +238,22 @@ function isNetworkResource(harEntry) {
  * Detect non-network resources (data urls embedded in page)
  *  Test with request.url as  request.httpVersion === "data"  does not work with old chrome version (example v55)
  */
-function isDataResource(harEntry) {
+function isDataResource(harEntry: har.Entry): boolean {
     return harEntry.request.url.startsWith('data');
 }
 
-function computeNumberOfErrorsInJSCode(code, url) {
+type EsprismaProgramWithErrors = esprisma.Program & {
+    errors: unknown[]
+}
+
+function computeNumberOfErrorsInJSCode(code: string, url: string): number {
     let errorNumber = 0;
     try {
-        const syntax = require('esprima').parse(code, { tolerant: true, sourceType: 'script', loc: true });
+        const syntax = esprisma.parseScript(code, { tolerant: true, loc: true }) as EsprismaProgramWithErrors;
         if (syntax.errors) {
             if (syntax.errors.length > 0) {
                 errorNumber += syntax.errors.length;
-                debug(() => `url ${url} : ${Syntax.errors.length} errors`);
+                debug(() => `url ${url} : ${syntax.errors.length} errors`);
             }
         }
     } catch (err) {
@@ -276,11 +263,13 @@ function computeNumberOfErrorsInJSCode(code, url) {
     return errorNumber;
 }
 
-function isHttpRedirectCode(code) {
+function isHttpRedirectCode(code: number): boolean {
     return httpRedirectCodes.some((value) => value === code);
 }
 
-function getImageTypeFromResource(resource) {
+type ImageType = 'png' | 'jpeg' | 'gif' | 'bmp' | 'tiff' | ''
+
+function getImageTypeFromResource(resource: har.Entry): ImageType {
     const contentType = getResponseHeaderFromResource(resource, 'content-type');
     if (contentType === 'image/png') return 'png';
     if (contentType === 'image/jpeg') return 'jpeg';
@@ -290,7 +279,7 @@ function getImageTypeFromResource(resource) {
     return '';
 }
 
-function getMinOptimisationGainsForImage(pixelsNumber, imageSize, imageType) {
+function getMinOptimisationGainsForImage(pixelsNumber: number, imageSize: number, imageType: string): number {
     // difficult to get good compression when image is small , images less than 10Kb are considered optimized
     if (imageSize < 10000) return 0;
 
@@ -305,19 +294,19 @@ function getMinOptimisationGainsForImage(pixelsNumber, imageSize, imageType) {
     return Math.max(0, imageSize - imgMaxSize);
 }
 
-function isSvgUrl(url) {
+function isSvgUrl(url: string): boolean {
     if (url.endsWith('.svg')) return true;
     if (url.includes('.svg?')) return true;
     return false;
 }
 
-function isSvgOptimized(svgImage) {
+function isSvgOptimized(svgImage: string): boolean {
     if (svgImage.length < 1000) return true; // do not consider image < 1KB
     if (svgImage.search(' <') === -1) return true;
     return false;
 }
 
-function getOfficialSocialButtonFormUrl(url) {
+function getOfficialSocialButtonFormUrl(url: string): string {
     if (url.includes('platform.twitter.com/widgets.js')) return 'tweeter';
     if (url.includes('platform.linkedin.com/in.js')) return 'linkedin';
     if (url.includes('assets.pinterest.com/js/pinit.js')) return 'pinterest';
@@ -328,8 +317,30 @@ function getOfficialSocialButtonFormUrl(url) {
     return '';
 }
 
-function debug(lazyString) {
+function debug(lazyString: Function | string): void {
     if (!DEBUG) return;
     const message = typeof lazyString === 'function' ? lazyString() : lazyString;
     console.log(`GreenIT-Analysis [DEBUG] ${message}\n`);
+}
+
+export {
+    isStaticRessource,
+    isFontResource,
+    getCookiesLength,
+    hasValidCacheHeaders,
+    isCompressibleResource,
+    isResourceCompressed,
+    isRessourceUsingETag,
+    getDomainFromUrl,
+    isMinified,
+    isNetworkResource,
+    isDataResource,
+    computeNumberOfErrorsInJSCode,
+    isHttpRedirectCode,
+    getImageTypeFromResource,
+    getMinOptimisationGainsForImage,
+    isSvgUrl,
+    isSvgOptimized,
+    getOfficialSocialButtonFormUrl,
+    debug,
 }
