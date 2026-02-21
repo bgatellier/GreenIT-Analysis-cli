@@ -8,17 +8,17 @@ if (!fs.existsSync(DIR)) {
     fs.mkdirSync(DIR);
 }
 
-const rules = glob.sync('./src/greenit-core/rules/*.js');
+const rules = glob.sync('./dist/greenit-core/rules/*.js');
 
 //One script to analyse them all
 concat(
     [
-        './src/greenit-core/analyseFrameCore.js',
-        './src/greenit-core/utils.js',
-        './src/greenit-core/rulesManager.js',
-        './src/greenit-core/ecoIndex.js',
+        './dist/greenit-core/analyseFrameCore.js',
+        './dist/greenit-core/utils.js',
+        './dist/greenit-core/rulesManager.js',
+        './dist/greenit-core/ecoIndex.js',
         ...rules,
-        './src/greenit-core/greenpanel.js',
+        './dist/greenit-core/greenpanel.js',
     ],
     './dist/greenItBundle.js',
     function (err) {

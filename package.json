@@ -11,9 +11,9 @@
         "npm": "^11.0.0"
     },
     "scripts": {
-        "postinstall": "node builder.js",
+        "postinstall": "npm run build",
         "test": "jest",
-        "build": "node builder.js",
+        "build": "npx tsc && node builder.js",
         "start": "node index.js"
     },
     "author": "",
