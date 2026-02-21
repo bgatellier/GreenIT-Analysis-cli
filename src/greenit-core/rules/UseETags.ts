@@ -1,11 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { isStaticRessource, isRessourceUsingETag } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "UseETags",
     comment: "",
     detailComment: "",
   
-    check: function (measures) {
-  
+    check: function (measures: Measures) {
       let staticResourcesSize = 0;
       let staticResourcesWithETagsSize = 0;
   
@@ -25,8 +28,7 @@ rulesManager.registerRule({
           else this.complianceLevel = 'B';
         }
         else this.complianceLevel = 'A';
-        this.comment = chrome.i18n.getMessage("rule_UseETags_Comment",
-          Math.round(eTagsRatio * 10) / 10 + "%");
+        this.comment = chrome.i18n.getMessage("rule_UseETags_Comment", Math.round(eTagsRatio * 10) / 10 + "%");
       }
     }
   }, "harReceived");

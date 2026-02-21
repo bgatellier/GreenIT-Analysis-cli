@@ -1,10 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { getCookiesLength, getDomainFromUrl } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "MaxCookiesLength",
     comment: "",
     detailComment: "",
 
-    check: function (measures) {
+    check: function (measures: Measures) {
         let maxCookiesLength = 0;
         let domains = new Map();
         if (measures.entries.length) measures.entries.forEach(entry => {

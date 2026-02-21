@@ -16,49 +16,60 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-function start_analyse_core() {
-    const analyseStartingTime = Date.now();
-    const dom_size = document.getElementsByTagName('*').length;
-    let pageAnalysis;
-
-    if (analyseBestPractices) {
-        // test with http://www.wickham43.net/flashvideo.php
-        const pluginsNumber = getPluginsNumber();
-        const printStyleSheetsNumber = getPrintStyleSheetsNumber();
-        const inlineStyleSheetsNumber = getInlineStyleSheetsNumber();
-        const emptySrcTagNumber = getEmptySrcTagNumber();
-        const inlineJsScript = getInlineJsScript();
-        const inlineJsScriptsNumber = getInlineJsScriptsNumber();
-        const imagesResizedInBrowser = getImagesResizedInBrowser();
-
-        pageAnalysis = {
-            analyseStartingTime: analyseStartingTime,
-            url: document.URL,
-            domSize: dom_size,
-            pluginsNumber: pluginsNumber,
-            printStyleSheetsNumber: printStyleSheetsNumber,
-            inlineStyleSheetsNumber: inlineStyleSheetsNumber,
-            emptySrcTagNumber: emptySrcTagNumber,
-            inlineJsScript: inlineJsScript,
-            inlineJsScriptsNumber: inlineJsScriptsNumber,
-            imagesResizedInBrowser: imagesResizedInBrowser,
-        };
-    } else
-        pageAnalysis = {
-            analyseStartingTime: analyseStartingTime,
-            url: document.URL,
-            domSize: dom_size,
-        };
-
-    return pageAnalysis;
+type ImageMeasures = {
+    src: string;
+    clientWidth: number;
+    clientHeight: number;
+    naturalWidth: number;
+    naturalHeight: number;
 }
 
-function getPluginsNumber() {
+type PageAnalysis = {
+    analyseStartingTime: number;
+    url: string;
+    domSize: number;
+    pluginsNumber: number;
+    printStyleSheetsNumber: number;
+    inlineStyleSheetsNumber: number;
+    emptySrcTagNumber: number;
+    inlineJsScript: string;
+    inlineJsScriptsNumber: number;
+    imagesResizedInBrowser: ImageMeasures[];
+};
+
+function start_analyse_core(): PageAnalysis {
+    const analyseStartingTime = Date.now();
+    const dom_size = document.getElementsByTagName('*').length;
+
+    // test with http://www.wickham43.net/flashvideo.php
+    const pluginsNumber = getPluginsNumber();
+    const printStyleSheetsNumber = getPrintStyleSheetsNumber();
+    const inlineStyleSheetsNumber = getInlineStyleSheetsNumber();
+    const emptySrcTagNumber = getEmptySrcTagNumber();
+    const inlineJsScript = getInlineJsScript();
+    const inlineJsScriptsNumber = getInlineJsScriptsNumber();
+    const imagesResizedInBrowser = getImagesResizedInBrowser();
+
+    return {
+        analyseStartingTime: analyseStartingTime,
+        url: document.URL,
+        domSize: dom_size,
+        pluginsNumber: pluginsNumber,
+        printStyleSheetsNumber: printStyleSheetsNumber,
+        inlineStyleSheetsNumber: inlineStyleSheetsNumber,
+        emptySrcTagNumber: emptySrcTagNumber,
+        inlineJsScript: inlineJsScript,
+        inlineJsScriptsNumber: inlineJsScriptsNumber,
+        imagesResizedInBrowser: imagesResizedInBrowser,
+    };;
+}
+
+function getPluginsNumber(): number {
     const plugins = document.querySelectorAll('object,embed');
     return plugins === undefined ? 0 : plugins.length;
 }
 
-function getEmptySrcTagNumber() {
+function getEmptySrcTagNumber(): number {
     return (
         document.querySelectorAll('img[src=""]').length +
         document.querySelectorAll('script[src=""]').length +
@@ -66,28 +77,20 @@ function getEmptySrcTagNumber() {
     );
 }
 
-function getPrintStyleSheetsNumber() {
+function getPrintStyleSheetsNumber(): number {
     return (
         document.querySelectorAll('link[rel=stylesheet][media~=print]').length +
         document.querySelectorAll('style[media~=print]').length
     );
 }
 
-function getInlineStyleSheetsNumber() {
-    let styleSheetsArray = Array.from(document.styleSheets);
-    let inlineStyleSheetsNumber = 0;
-    styleSheetsArray.forEach((styleSheet) => {
-        try {
-            if (!styleSheet.href) inlineStyleSheetsNumber++;
-        } catch (err) {
-            console.log('GREENIT-ANALYSIS ERROR ,' + err.name + ' = ' + err.message);
-            console.log('GREENIT-ANALYSIS ERROR ' + err.stack);
-        }
-    });
-    return inlineStyleSheetsNumber;
+function getInlineStyleSheetsNumber(): number {
+    const styleSheetsArray = Array.from(document.styleSheets);
+
+    return styleSheetsArray.filter((styleSheet) => !styleSheet.href).length
 }
 
-function getInlineJsScript() {
+function getInlineJsScript(): string {
     let scriptArray = Array.from(document.scripts);
     let scriptText = '';
     scriptArray.forEach((script) => {
@@ -97,7 +100,7 @@ function getInlineJsScript() {
     return scriptText;
 }
 
-function getInlineJsScriptsNumber() {
+function getInlineJsScriptsNumber(): number {
     let scriptArray = Array.from(document.scripts);
     let inlineScriptNumber = 0;
     scriptArray.forEach((script) => {
@@ -107,14 +110,14 @@ function getInlineJsScriptsNumber() {
     return inlineScriptNumber;
 }
 
-function getImagesResizedInBrowser() {
+function getImagesResizedInBrowser(): ImageMeasures[] {
     const imgArray = Array.from(document.querySelectorAll('img'));
-    let imagesResized = [];
+    const imagesResized = new Array<ImageMeasures>();
     imgArray.forEach((img) => {
         if (img.clientWidth < img.naturalWidth || img.clientHeight < img.naturalHeight) {
             // Images of one pixel are some times used ... , we exclude them
             if (img.naturalWidth > 1) {
-                const imageMeasures = {
+                const imageMeasures: ImageMeasures = {
                     src: img.src,
                     clientWidth: img.clientWidth,
                     clientHeight: img.clientHeight,
@@ -125,5 +128,15 @@ function getImagesResizedInBrowser() {
             }
         }
     });
+
     return imagesResized;
 }
+
+export {
+    start_analyse_core,
+};
+
+export type {
+    ImageMeasures,
+    PageAnalysis,
+};

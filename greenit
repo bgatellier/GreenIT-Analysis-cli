@@ -2,8 +2,8 @@
 'use strict';
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
-const sizes = require('./src/conf/sizes.js');
-const analyse_core = require('./src/commands/analyse.js').analyse_core;
+const sizes = require('./dist/conf/sizes.js').sizes;
+const analyse_core = require('./dist/commands/analyse.js').analyse_core;
 
 yargs(hideBin(process.argv))
     .command(

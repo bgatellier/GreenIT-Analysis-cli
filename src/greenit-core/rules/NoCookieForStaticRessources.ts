@@ -1,10 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { getCookiesLength, isStaticRessource } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "NoCookieForStaticRessources",
     comment: "",
     detailComment: "",
   
-    check: function (measures) {
+    check: function (measures: Measures) {
       let nbRessourcesStaticWithCookie = 0;
       let totalCookiesSize = 0;
       if (measures.entries.length) measures.entries.forEach(entry => {

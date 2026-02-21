@@ -1,3 +1,7 @@
+import { Measures } from "../../cli-core/analysis";
+import { ResourceContent, rulesManager } from "../rulesManager";
+import { isMinified } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "MinifiedCss",
@@ -6,8 +10,8 @@ rulesManager.registerRule({
     totalCssSize: 0,
     minifiedCssSize: 0,
 
-    check: function (measures, resourceContent) {
-        if (resourceContent.type === "stylesheet") {
+    check: function (_measures: Measures, resourceContent?: ResourceContent) {
+        if (resourceContent?.type === "Stylesheet") {
             this.totalCssSize += resourceContent.content.length;
             if (!isMinified(resourceContent.content)) this.detailComment += chrome.i18n.getMessage("rule_MinifiedCss_DetailComment",resourceContent.url) + '<br>';
             else this.minifiedCssSize += resourceContent.content.length;

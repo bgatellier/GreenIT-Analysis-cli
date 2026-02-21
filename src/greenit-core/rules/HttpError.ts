@@ -1,10 +1,13 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "HttpError",
     comment: "",
     detailComment: "",
   
-    check: function (measures) {
+    check: function (measures: Measures) {
       let errorNumber = 0;
       if (measures.entries.length) measures.entries.forEach(entry => {
         if (entry.response) {

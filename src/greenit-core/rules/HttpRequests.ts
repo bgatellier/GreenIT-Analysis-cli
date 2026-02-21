@@ -1,10 +1,13 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "HttpRequests",
     comment: "",
     detailComment: "",
 
-    check: function (measures) {
+    check: function (measures: Measures) {
         if (measures.entries.length) measures.entries.forEach(entry => {
             this.detailComment += entry.request.url + "<br>";
         });

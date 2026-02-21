@@ -43,3 +43,7 @@ export const sizes: Size = {
         isMobile: false,
     },
 };
+
+export type {
+    Device,
+}

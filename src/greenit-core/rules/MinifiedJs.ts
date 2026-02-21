@@ -1,3 +1,7 @@
+import { Measures } from "../../cli-core/analysis";
+import { ResourceContent, rulesManager } from "../rulesManager";
+import { isMinified } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "MinifiedJs",
@@ -6,11 +10,14 @@ rulesManager.registerRule({
     totalJsSize: 0,
     minifiedJsSize: 0,
 
-    check: function (measures, resourceContent) {
-        if (resourceContent.type === "script") {
+    check: function (_measures: Measures, resourceContent?: ResourceContent) {
+        if (resourceContent?.type === "Script") {
             this.totalJsSize += resourceContent.content.length;
-            if (!isMinified(resourceContent.content)) this.detailComment += chrome.i18n.getMessage("rule_MinifiedJs_DetailComment",resourceContent.url) + '<br>';
-            else this.minifiedJsSize += resourceContent.content.length;
+            if (isMinified(resourceContent.content)) {
+                this.minifiedJsSize += resourceContent.content.length;
+            } else {
+                this.detailComment += chrome.i18n.getMessage("rule_MinifiedJs_DetailComment",resourceContent.url) + '<br>';
+            }
             const percentMinifiedJs = this.minifiedJsSize / this.totalJsSize * 100;
             this.complianceLevel = 'A';
             if (percentMinifiedJs < 90) this.complianceLevel = 'C';

@@ -1,0 +1,219 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { Options } from '../commands/analyse';
+import { Device } from '../conf/sizes';
+import { Measures, Report, ScenarioResult } from './analysis';
+import { Translator } from './translator';
+import { createProgressBar, getEcoIndexGrade, getGradeEcoIndex, Grade } from './utils';
+
+/**
+ * keep track of worst pages based on ecoIndex
+ */
+function worstPagesHandler(result: ScenarioResult, table: [], number: number) {
+    let index = 0;
+    for (index; index < table.length; index++) {
+        if (result.ecoIndex < table[index]?.ecoIndex) break;
+    }
+
+    const addObj: UnsuccessfulReportError = {
+        nb: result.nb,
+        url: result.pageInformations.url,
+        grade: result.grade,
+        ecoIndex: result.ecoIndex,
+    };
+    table.splice(index, 0, addObj);
+    if (table.length > number) table.pop();
+    return table;
+}
+
+/**
+ * keep track of the least followed rule based on grade
+ */
+function handleWorstRule(bestPracticesTotal: Map<string, number>, numberOfRuleToKeep: number) {
+    const table = Array.from(bestPracticesTotal.entries()).map(([key, total]) => {
+        return {
+            name: key,
+            total: total
+        }
+    });
+    
+    return table
+        .toSorted((a, b) => a.total - b.total)
+        .slice(0, numberOfRuleToKeep)
+        .map((obj) => obj.name);
+}
+
+type UnsuccessfulReportError = {
+    nb: number;
+    url: string;
+    grade: Grade
+    ecoIndex: number;
+}
+
+type GlobalSheetData = {
+    date: string;
+    hostname: string | undefined;
+    device: Device,
+    connection: string | undefined,
+    grade: Grade,
+    ecoIndex: number | 'No data';
+    worstEcoIndexes: unknown[],
+    nbScenarios: number;
+    timeout: number | 'No data';
+    maxTab: number | 'No data';
+    retry: number | 'No data';
+    errors: UnsuccessfulReportError[];
+    worstPages: unknown[];
+    worstRules: string[];
+    nbBestPracticesToCorrect: number;
+}
+
+type GlobalReport = {
+    globalReport: {
+        name: 'Global Report';
+        path: string;
+    },
+    reports: Report[];
+}
+
+async function create_global_report(reports: Report[], options: Options, translator: Translator): Promise<GlobalReport> {
+    // Nb of displayed worst pages
+    const WORST_PAGES = options.worst_pages;
+    // Nb of displayed worst rules
+    const WORST_RULES = options.worst_rules;
+    // JSON output directory
+    const JSON_SUBRESULTS_DIRECTORY = path.join(__dirname, '../../', path.dirname(options.report_output_file), 'json');
+
+    const LANGUAGE = options.language;
+
+    // initialise progress bar
+    const progressBar = createProgressBar(
+        options,
+        reports.length + 2,
+        'Create Global report',
+        'Creating global report ...'
+    );
+
+    let eco = 0; //future average
+    let worstEcoIndexes = [null, null];
+    let err = new Array<UnsuccessfulReportError>();
+    let hostname: string | undefined = undefined;
+    const worstPages = new Array<unknown>();
+    let bestPracticesTotal = new Map<string, number>();
+    let nbBestPracticesToCorrect = 0;
+
+    //Creating one report sheet per file
+    reports.forEach((report) => {
+        let result: ScenarioResult = JSON.parse(fs.readFileSync(report.path).toString());
+        if (!hostname) hostname = result.pageInformations.url.split('/')[2];
+        result.nb = Number.parseInt(report.name);
+        //handle potential failed analyse
+        if (result.success) {
+            eco += result.ecoIndex;
+            const pageWorstEcoIndexes = getWorstEcoIndexes(result);
+            if (!worstEcoIndexes[0] || worstEcoIndexes[0].ecoIndex > pageWorstEcoIndexes[0].ecoIndex) {
+                // update global worst ecoindex
+                worstEcoIndexes[0] = { ...pageWorstEcoIndexes[0] };
+            }
+            if (!worstEcoIndexes[1] || worstEcoIndexes[1].ecoIndex > pageWorstEcoIndexes[1].ecoIndex) {
+                // update global worst ecoindex
+                worstEcoIndexes[1] = { ...pageWorstEcoIndexes[1] };
+            }
+
+            nbBestPracticesToCorrect += result.nbBestPracticesToCorrect;
+            worstPagesHandler(result, worstPages, WORST_PAGES);
+            result.pages.forEach((page) => {
+                if (page.bestPractices) {
+                    for (let key in page.bestPractices) {
+                        const bestPracticeEcoIndex = bestPracticesTotal.get(key) ?? 0;
+
+                        const pageEcoIndex = getGradeEcoIndex(page.bestPractices[key]?.complianceLevel || 'A');
+                        
+                        bestPracticesTotal.set(key, bestPracticeEcoIndex + pageEcoIndex);
+                    }
+                }
+            });
+        } else {
+            err.push({
+                nb: result.nb,
+                url: result.pageInformations.url,
+                grade: result.grade,
+                ecoIndex: result.ecoIndex,
+            });
+        }
+        if (progressBar) progressBar.tick();
+    });
+
+    //Add info the recap sheet
+    //Prepare data
+    const date = new Date();
+    const globalSheet_data: GlobalSheetData = {
+        date: `${date.toLocaleDateString(LANGUAGE)} ${date.toLocaleTimeString(LANGUAGE)}`,
+        hostname: hostname,
+        device: options.device,
+        connection: options.mobile ? translator.translate('mobile') : translator.translate('wired'),
+        grade: getEcoIndexGrade(eco),
+        ecoIndex: reports.length - err.length === 0 ? 'No data' : Math.round(eco / (reports.length - err.length)), //Average EcoIndex,
+        worstEcoIndexes: worstEcoIndexes,
+        nbScenarios: reports.length,
+        timeout: options.timeout ?? 'No data',
+        maxTab: options.max_tab ?? 'No data',
+        retry: options.retry ?? 'No data',
+        errors: err,
+        worstPages: worstPages,
+        worstRules: handleWorstRule(bestPracticesTotal, WORST_RULES),
+        nbBestPracticesToCorrect: nbBestPracticesToCorrect,
+    };
+
+    if (progressBar) progressBar.tick();
+
+    // save report
+    const filePath = path.join(JSON_SUBRESULTS_DIRECTORY, 'globalReport.json');
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(globalSheet_data));
+    } catch (error) {
+        console.log(` Global report : Path "${filePath}" cannot be reached.`);
+        throw error;
+    }
+
+    return {
+        globalReport: {
+            name: 'Global Report',
+            path: filePath,
+        },
+        reports,
+    };
+}
+
+type WorstEcoIndex = {
+    ecoIndex: number;
+    grade: Grade
+}
+
+function getWorstEcoIndexes(result: ScenarioResult): WorstEcoIndex[] {
+    let worstEcoIndexes = [0, 0];
+    result.pages.forEach((page) => {
+        worstEcoIndexes = worstEcoIndexes.map((worstEcoIndex, i) => {
+            if (page.actions.length === 1 || i === 0) {
+                // first = last if only one value, otherwise return value of first action
+                return Math.min((page.actions[0] as Measures).ecoIndex, worstEcoIndex);
+            } else if (i === 1) {
+                // return value of last action
+                if ((page.actions.at(-1) as Measures).ecoIndex) {
+                    return Math.min((page.actions.at(-1) as Measures).ecoIndex, worstEcoIndex);
+                }
+            }
+            return worstEcoIndex;
+        });
+    });
+
+    return worstEcoIndexes.map((worstEcoIndex) => ({
+        ecoIndex: worstEcoIndex,
+        grade: getEcoIndexGrade(worstEcoIndex),
+    }));
+}
+
+export {
+    create_global_report
+};
+

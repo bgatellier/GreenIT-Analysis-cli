@@ -1,3 +1,7 @@
+import { Measures } from "../../cli-core/analysis";
+import { ResourceContent, rulesManager } from "../rulesManager";
+import { computeNumberOfErrorsInJSCode } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "JsValidate",
@@ -6,8 +10,8 @@ rulesManager.registerRule({
     errors: 0,
     totalJsSize: 0,
 
-    check: function (measures, resourceContent) {
-        if (resourceContent.type === "script") {
+    check: function (_measures: Measures, resourceContent?: ResourceContent) {
+        if (resourceContent?.type === "Script") {
             this.totalJsSize += resourceContent.content.length;
             let errorNumber = computeNumberOfErrorsInJSCode(resourceContent.content, resourceContent.url);
             if (errorNumber > 0) {

@@ -1,13 +1,15 @@
 import ProgressBar from 'progress';
 
-type Grade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
+export type Grade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 
 /**
  * Initialize new progress bar
  */
 function createProgressBar(options: { ci: boolean }, total: number, progressText: string, defaultText: string) {
     let progressBar;
-    if (!options.ci) {
+    if (options.ci) {
+        console.log(`${defaultText}`);
+    } else {
         progressBar = new ProgressBar(
             ` ${progressText}       [:bar] :percent     Remaining: :etas     Time: :elapseds`,
             {
@@ -18,8 +20,6 @@ function createProgressBar(options: { ci: boolean }, total: number, progressText
             }
         );
         progressBar.tick();
-    } else {
-        console.log(`${defaultText}`);
     }
 
     return progressBar;

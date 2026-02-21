@@ -1,10 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { hasValidCacheHeaders, isStaticRessource } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "AddExpiresOrCacheControlHeaders",
     comment: "",
     detailComment: "",
 
-    check: function (measures) {
+    check: function (measures: Measures): void {
         let staticResourcesSize = 0;
         let staticResourcesWithCache = 0;
 
@@ -28,4 +32,4 @@ rulesManager.registerRule({
             this.comment = chrome.i18n.getMessage("rule_AddExpiresOrCacheControlHeaders_Comment", String(Math.round(cacheHeaderRatio * 10) / 10) + "%");
         }
     }
-}, "harReceived");  
+}, "harReceived");

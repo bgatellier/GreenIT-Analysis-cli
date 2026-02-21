@@ -1,14 +1,18 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { getResponseHeaderFromResource } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "StyleSheets",
     comment: "",
     detailComment: "",
   
-    check: function (measures) {
-      let styleSheets = [];
+    check: function (measures: Measures) {
+      const styleSheets = new Array<string>();
       if (measures.entries.length) measures.entries.forEach(entry => {
         if (getResponseHeaderFromResource(entry, "content-type").toLowerCase().includes('text/css')) {
-          if (styleSheets.indexOf(entry.request.url) === -1) {
+          if (!styleSheets.includes(entry.request.url)) {
             styleSheets.push(entry.request.url);
             this.detailComment += entry.request.url + "<br>";
           }

@@ -33,4 +33,4 @@ class Translator {
 }
 
 export const translator = new Translator()
-export type { Locale }
+export type { Locale, Translator }

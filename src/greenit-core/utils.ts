@@ -106,7 +106,7 @@ const staticResources = new Array<RegExp>().concat(image, javascript, font, css,
 
 const httpCompressionTokens = new Set(['br', 'compress', 'deflate', 'gzip', 'pack200-gzip']);
 
-const httpRedirectCodes = [301, 302, 303, 307];
+const httpRedirectCodes = new Set([301, 302, 303, 307]);
 
 // utils for cache rule
 function isStaticRessource(resource: har.Entry): boolean {
@@ -264,7 +264,7 @@ function computeNumberOfErrorsInJSCode(code: string, url: string): number {
 }
 
 function isHttpRedirectCode(code: number): boolean {
-    return httpRedirectCodes.some((value) => value === code);
+    return httpRedirectCodes.has(code);
 }
 
 type ImageType = 'png' | 'jpeg' | 'gif' | 'bmp' | 'tiff' | ''
@@ -332,6 +332,7 @@ export {
     isResourceCompressed,
     isRessourceUsingETag,
     getDomainFromUrl,
+    getResponseHeaderFromResource,
     isMinified,
     isNetworkResource,
     isDataResource,

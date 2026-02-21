@@ -1,10 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { isHttpRedirectCode } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "NoRedirect",
     comment: "",
     detailComment: "",
   
-    check: function (measures) {
+    check: function (measures: Measures) {
       let redirectNumber = 0;
       if (measures.entries.length) measures.entries.forEach(entry => {
         if (entry.response) {

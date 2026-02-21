@@ -1,10 +1,14 @@
+import { Measures } from "../../cli-core/analysis";
+import { rulesManager } from "../rulesManager";
+import { isCompressibleResource, isResourceCompressed } from "../utils";
+
 rulesManager.registerRule({
     complianceLevel: 'A',
     id: "CompressHttp",
     comment: "",
     detailComment: "",
 
-    check: function (measures) {
+    check: function (measures: Measures) {
         let compressibleResourcesSize = 0;
         let compressibleResourcesCompressedSize = 0;
         if (measures.entries.length) measures.entries.forEach(entry => {
