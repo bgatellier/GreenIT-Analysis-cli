@@ -1,4 +1,11 @@
-const rules = [
+type Rule = {
+    bestPractice: string,
+    priority: number,
+    effort: number,
+    impact: number,
+}
+
+export const rules: Rule[] = [
     {
         bestPractice: 'DomainsNumber',
         priority: 3,
@@ -144,5 +151,3 @@ const rules = [
         impact: 4,
     },
 ];
-
-module.exports = rules;

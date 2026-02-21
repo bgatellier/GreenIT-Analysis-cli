@@ -1,4 +1,12 @@
-module.exports = {
+type Device = 'desktop' | 'galaxyS9' | 'galaxyS20' | 'iPhone8' | 'iPhone8Plus' | 'iPhoneX' | 'iPad'
+
+type Size = Record<Device, {
+    width: number,
+    height: number,
+    isMobile: boolean,
+}>
+
+export const sizes: Size = {
     desktop: {
         width: 1920,
         height: 1080,
